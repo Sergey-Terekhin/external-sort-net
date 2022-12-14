@@ -51,3 +51,27 @@
 4. При сортировке строк должны учитываться эквивалентные символы в некоторых языках? Например, 'ß' и "ss" в немецком. Нет.
 5. Должны ли при генерации формироваться осмысленные слова и псевдопредложения?
 Подойдет любой способ. При проверке задания основной фокус будет на второй части - сортировщике.
+
+
+
+
+
+Результаты для генератора тестовых файлов
+[21:12:57 INF] Creating 1Gb file for string length 20 bytes
+[21:12:57 INF] Started to generate test data file C:\Users\terekhin\Downloads\output_20.txt
+[21:12:57 INF] Generated 10000 records to use as duplicates source
+[21:18:49 INF] Finished generation of test data file. Generated 43410026 records and 1073741872 bytes. Duplicates written: 438276
+[21:18:49 INF] Creating 1Gb file for string length 100 bytes
+[21:18:49 INF] Started to generate test data file C:\Users\terekhin\Downloads\output_100.txt
+[21:18:49 INF] Generated 10000 records to use as duplicates source
+[21:20:42 INF] Finished generation of test data file. Generated 16587496 records and 1073744065 bytes. Duplicates written: 168093
+[21:20:42 INF] Creating 1Gb file for string length 500 bytes
+[21:20:42 INF] Started to generate test data file C:\Users\terekhin\Downloads\output_500.txt
+[21:20:42 INF] Generated 10000 records to use as duplicates source
+[21:21:18 INF] Finished generation of test data file. Generated 4054993 records and 1073759336 bytes. Duplicates written: 40888
+[21:21:18 INF] Creating 1Gb file for string length 1000 bytes
+[21:21:18 INF] Started to generate test data file C:\Users\terekhin\Downloads\output_1000.txt
+[21:21:19 INF] Generated 10000 records to use as duplicates source
+[21:22:01 INF] Finished generation of test data file. Generated 2086021 records and 1073742026 bytes. Duplicates written: 20823
+
+Вывод - меньше длина строки, менее эффективная генерация

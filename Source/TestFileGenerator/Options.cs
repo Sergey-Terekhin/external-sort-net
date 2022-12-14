@@ -13,4 +13,7 @@ internal class Options
     
     [CommandLine.Option('c',"concurrency", Default = -1, HelpText = "Degree of parallelism used to generate test data")]
     public int Concurrency { get; set; }
+    
+    [CommandLine.Option('d',"duplicates-ratio", Default = 0.01, HelpText = "Probability that random data will be taken from pre-generated array to provide duplicates. Default value is 1%")]
+    public double DuplicatesRatio { get; set; }
 }
