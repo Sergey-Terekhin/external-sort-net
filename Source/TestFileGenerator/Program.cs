@@ -1,39 +1,23 @@
-﻿// See https://aka.ms/new-console-template for more information
-
+﻿using CommandLine;
+using ExternalSort;
+using FluentValidation;
 using Serilog;
-using Serilog.Core;
-using TestFileGenerator;
 
-internal static class Program
+var logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+var result = Parser.Default.ParseArguments<Options>(args);
+if (result is Parsed<Options>)
 {
-    public static async Task<int> Main(string[] args)
+    try
     {
-        var logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
-        // await Parser.Default.ParseArguments<Options>(args)
-        //     .WithParsedAsync(opt=>new TestFileGenerator(opt, logger).GenerateFileAsync());
-        // await new TestFileGenerator.TestFileGenerator(new Options
-        // {
-        //     Concurrency = -1,
-        //     Output = @"C:\Users\terekhin\Downloads\output.txt",
-        //     Size = 1024 * 1024 * 1024,
-        //     StringLength = 512,
-        //     DuplicatesRatio = 0.01
-        // }, logger).GenerateFileAsync();
-
-        foreach (var length in new[] { 20, 100, 500, 1000 })
-        {
-            logger.Information("Creating 1Gb file for string length {Length} bytes", length);
-            await new TestFileGenerator.TestFileGenerator(new Options
-            {
-                Concurrency = -1,
-                Output = $"C:\\Users\\terekhin\\Downloads\\output_{length}.txt",
-                Size = 1024 * 1024 * 1024,
-                StringLength = length,
-                DuplicatesRatio = 0.01
-            }, logger).GenerateFileAsync();
-        }
-
-
+        await new OptionsValidator().ValidateAndThrowAsync(result.Value);
+        await new TestFileGenerator(result.Value, logger).GenerateFileAsync();
         return 0;
     }
+    catch (Exception e)
+    {
+        logger.Fatal(e, "Failed to generate file. Options were:\r\n{@Options}\r\n", result.Value);
+        return -1;
+    }
 }
+
+return -2;

@@ -61,9 +61,7 @@ public static class MultikeyQuickSort
                 }
                 else
                 {
-                    string tmp = x[pj];
-                    x[pj] = x[pj1];
-                    x[pj1] = tmp;
+                    swap(x, pj, pj1);
                     pj = pj1;
                 }
             }
@@ -74,37 +72,10 @@ public static class MultikeyQuickSort
 
     static void swap(string[] arr, int i, int j)
     {
-        string tmp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = tmp;
+        (arr[i], arr[j]) = (arr[j], arr[i]);
     }
 
-    static int fullCmp(int depth, string a, string b)
-    {
-        int lenA = a.Length;
-        int lenB = b.Length;
-        if (lenA == depth && lenB == depth)
-            return 0;
-        else
-        if (lenA == depth)
-            return -1; //a is empty, b is not empty
-        else if (lenB == depth)
-            return 1;
-        else
-        {
-            char ch1 = a[depth];
-            char ch2 = b[depth];
-            if (ch1 < ch2)
-            {
-                return -1;
-            }
-            else if (ch1 == ch2)
-                return 0;
-            else
-                return 1;
-        }
-    }
-
+   
     static int cmpByPivotChar(int depth, string a, char ch2)
     {
         int lenA = a.Length;
@@ -129,26 +100,6 @@ public static class MultikeyQuickSort
             return 0;
         else
             return 1;
-    }
-
-    static int midOf(int a, int b)
-    {
-        return (a + ((b - a + 1) >> 1));
-    }
-
-    static void swapIfGreater(string[] input, int depth, int i, int j)
-    {
-        if (i != j && (fullCmp(depth, input[i], input[j]) > 0))
-        {
-            swap(input, i, j);
-        }
-    }
-
-    static void sortPivots(string[] input, int depth, int s, int m, int e)
-    {
-        swapIfGreater(input, depth, s, m); //st1 <= mid
-        swapIfGreater(input, depth, s, e); //st1 <= ed1
-        swapIfGreater(input, depth, m, e); //mid <= ed1
     }
 
     static char at(string s, int pos)

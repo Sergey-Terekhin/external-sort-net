@@ -1,22 +1,18 @@
 ﻿using System.Buffers;
-using System.Text;
 using System.Threading.Tasks.Dataflow;
 using Serilog.Core;
 
-namespace TestFileGenerator;
+using DisposableArraySegment = ExternalSort.DisposableArraySegment<byte>;
+// ReSharper disable ForCanBeConvertedToForeach
+// ReSharper disable ArrangeObjectCreationWhenTypeNotEvident
+
+namespace ExternalSort;
 
 internal class TestFileGenerator
 {
-    private const int MaxLongDigits = 19; //digits count in the long.MaxValue value (9,223,372,036,854,775,807)
 
-    private const int FileBufferSize = 8192;
-    private const string AllowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ";
-    private const string AllowedFirstChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    private static readonly byte[] Separator = Encoding.ASCII.GetBytes(". ");
-    private static readonly byte[] EndOfLine = Encoding.ASCII.GetBytes("\r\n");
-    private static readonly int SeparatorLength = Separator.Length;
-    private static readonly int EndOfLineLength = EndOfLine.Length;
-    private static readonly int AdditionalLength = MaxLongDigits + SeparatorLength + EndOfLineLength;
+    private const int FileBufferSize = 8*1024*1024;
+    private static readonly int MaxAdditionalLength = Constants.MaxLongDigits + Constants.SeparatorLength + Constants.EndOfLineLength;
 
     private readonly Options _options;
     private readonly Logger _logger;
@@ -38,15 +34,13 @@ internal class TestFileGenerator
         var parallelOptions = new ExecutionDataflowBlockOptions
         {
             MaxDegreeOfParallelism = concurrency,
-            BoundedCapacity = 8192 * 10 / context.MaximalDataLength,
-            //MaxMessagesPerTask = -1
+            BoundedCapacity = 8192 * 10 / context.MaximalDataLength
         };
 
         var generateRandomStringBlock = new TransformBlock<GenerationContext, RecordContext>(GenerateLineData, parallelOptions);
-        var batchBlock = new BatchBlock<RecordContext>(FileBufferSize / (context.MaximalDataLength + AdditionalLength));
-        var combineBuffersBlock = new TransformBlock<RecordContext[], RecordContext>(CombineBuffers);
-
-        var writeToFileBlock = new ActionBlock<RecordContext>(WriteLineToStream, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1 });
+        var batchBlock = new BatchBlock<RecordContext>(FileBufferSize / (context.MaximalDataLength + MaxAdditionalLength));
+        var combineBuffersBlock = new TransformBlock<RecordContext[], BufferContext>(CombineBuffers);
+        var writeToFileBlock = new ActionBlock<BufferContext>(WriteLineToStream, new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1 });
 
         var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
 
@@ -73,26 +67,27 @@ internal class TestFileGenerator
             context.DuplicatesHit);
     }
 
-    private static RecordContext CombineBuffers(RecordContext[] buffers)
+    private static BufferContext CombineBuffers(RecordContext[] buffers)
     {
         var resultBuffer = ArrayPool<byte>.Shared.Rent(FileBufferSize);
+       
         var writtenLength = 0;
         for (var i = 0; i < buffers.Length; i++)
         {
+            var span = resultBuffer.AsSpan(writtenLength);
             var buffer = buffers[i].Data;
-            buffer.Value.CopyTo(resultBuffer, writtenLength);
-            writtenLength += buffer.Value.Count;
+            writtenLength += buffer.WriteTo(span);
             buffer.Dispose();
         }
 
         return new(
             buffers[0].GlobalContext,
-            new DisposableWrapper(
+            new DisposableArraySegment(
                 new ArraySegment<byte>(resultBuffer, 0, writtenLength),
                 array => ArrayPool<byte>.Shared.Return(array)));
     }
 
-    private static async Task WriteLineToStream(RecordContext ctx)
+    private static async Task WriteLineToStream(BufferContext ctx)
     {
         var stream = ctx.GlobalContext.WriteStream;
         var line = ctx.Data.Value;
@@ -102,49 +97,43 @@ internal class TestFileGenerator
 
     private static RecordContext GenerateLineData(GenerationContext ctx)
     {
-        var chars = ArrayPool<byte>.Shared.Rent(ctx.MaximalDataLength + AdditionalLength);
         var num = ctx.RandomNumber();
-        var recordLength = WriteLongStringBytes(num, chars.AsSpan());
-        Array.Copy(Separator, 0, chars, recordLength, SeparatorLength);
-        recordLength += SeparatorLength;
-
+        DisposableArraySegment data;
+        
         var takeDuplicate = ctx.Random.NextDouble() <= ctx.DuplicatesRatio;
         if (takeDuplicate && ctx.DataForDuplicates.Length > 0)
         {
             ctx.IncrementDuplicateHit();
-            return new(ctx, ctx.RandomDuplicate());
+            data = ctx.RandomDuplicate();
+        }
+        else
+        {
+            var chars = ArrayPool<byte>.Shared.Rent(ctx.MaximalDataLength);
+            var dataLength = ctx.Random.Next(ctx.MinimalDataLength, ctx.MaximalDataLength);
+            FillRandomArray(chars, 0, dataLength, ctx.Random);
+            data = new DisposableArraySegment(
+                new ArraySegment<byte>(chars, 0, dataLength),
+                arr => ArrayPool<byte>.Shared.Return(arr));
         }
 
-        var dataLength = ctx.Random.Next(ctx.MinimalDataLength, ctx.MaximalDataLength);
-
-        FillRandomArray(chars, recordLength, dataLength, ctx.Random);
-        recordLength += dataLength;
-
-        Array.Copy(EndOfLine, 0, chars, recordLength, EndOfLineLength);
-        recordLength += EndOfLineLength;
-
-        ctx.IncrementGeneratedBytes(recordLength);
+        var record = new FileRecord(num, data);
+        ctx.IncrementGeneratedBytes(record.ByteLength());
         ctx.IncrementGeneratedRecords();
-
-        return new(
-            ctx,
-            new DisposableWrapper(
-                new ArraySegment<byte>(chars, 0, recordLength),
-                arr => ArrayPool<byte>.Shared.Return(arr)));
+        return new(ctx, record);
     }
 
-    private static DisposableWrapper[] GenerateRandomStringsData(GenerationContext ctx)
+    private static DisposableArraySegment[] GenerateRandomStringsData(GenerationContext ctx)
     {
         if (ctx.PreGeneratedDatasetSize == 0)
-            return Array.Empty<DisposableWrapper>();
+            return Array.Empty<DisposableArraySegment>();
 
-        var result = new DisposableWrapper[ctx.PreGeneratedDatasetSize];
+        var result = new DisposableArraySegment[ctx.PreGeneratedDatasetSize];
         for (var i = 0; i < result.Length; i++)
         {
-            var length = Random.Shared.Next(ctx.MinimalDataLength, ctx.MaximalDataLength);
+            var length = ctx.Random.Next(ctx.MinimalDataLength, ctx.MaximalDataLength);
             var array = new byte[length];
             FillRandomArray(array, 0, length, ctx.Random);
-            result[i] = new DisposableWrapper(array);
+            result[i] = new DisposableArraySegment(array);
         }
 
         return result;
@@ -152,48 +141,17 @@ internal class TestFileGenerator
 
     private static void FillRandomArray(byte[] array, int start, int length, Random random)
     {
-        array[start] = (byte)AllowedFirstChars[random.Next(0, AllowedFirstChars.Length)];
+        array[start] = (byte)Constants.AllowedFirstChars[random.Next(0, Constants.AllowedFirstChars.Length)];
         if (length == 1)
             return;
 
         for (var i = 1; i < length; i++)
-            array[i + start] = (byte)AllowedChars[random.Next(0, AllowedChars.Length)];
+            array[i + start] = (byte)Constants.AllowedChars[random.Next(0, Constants.AllowedChars.Length)];
     }
 
-    private static int WriteLongStringBytes(long num, Span<byte> writeTo)
-    {
-        return Encoding.ASCII.GetBytes(num.ToString(), writeTo);
-    }
+    private record RecordContext(GenerationContext GlobalContext, FileRecord Data);
+    private record BufferContext(GenerationContext GlobalContext, DisposableArraySegment<byte> Data);
 
-    private class RecordContext
-    {
-        public RecordContext(GenerationContext globalContext, DisposableWrapper data)
-        {
-            GlobalContext = globalContext;
-            Data = data;
-        }
-
-        public GenerationContext GlobalContext { get; }
-        public DisposableWrapper Data { get; }
-    }
-
-    private class DisposableWrapper : IDisposable
-    {
-        private readonly Action<byte[]>? _dispose;
-
-        public DisposableWrapper(ArraySegment<byte> value, Action<byte[]>? dispose = null)
-        {
-            _dispose = dispose;
-            Value = value;
-        }
-
-        public ArraySegment<byte> Value { get; }
-
-        public void Dispose()
-        {
-            _dispose?.Invoke(Value.Array!);
-        }
-    }
 
     private record GenerationContext : IDisposable
     {
@@ -202,13 +160,13 @@ internal class TestFileGenerator
         private long _duplicatesHit;
         private const int MinStringLength = 1;
         private const int MaxDuplicatesDatasetSize = 10000;
-        private readonly Random _random = Random.Shared;
 
         public GenerationContext(Options options)
         {
+            Random = Random.Shared;
             MaximalDataLength = options.StringLength;
             MinimalDataLength = MinStringLength;
-            MedianDataLength = (MaximalDataLength - MinimalDataLength) / 2 + AdditionalLength;
+            MedianDataLength = (MaximalDataLength - MinimalDataLength) / 2 + MaxAdditionalLength;
             ApproximateRecordsCount = options.Size / MedianDataLength;
             PreGeneratedDatasetSize = (int)Math.Min(ApproximateRecordsCount * options.DuplicatesRatio, MaxDuplicatesDatasetSize);
             DuplicatesRatio = options.DuplicatesRatio;
@@ -224,7 +182,7 @@ internal class TestFileGenerator
         public double DuplicatesRatio { get; }
 
         /// <summary> Returns randomizer to use </summary>
-        public Random Random => _random;
+        public Random Random { get; }
 
         /// <summary> Amount of generated bytes </summary>
         public long GeneratedBytes => _generatedBytes;
@@ -250,7 +208,7 @@ internal class TestFileGenerator
         /// <summary> Maximal data length </summary>
         public int MaximalDataLength { get; }
 
-        public DisposableWrapper[] DataForDuplicates { get; set; } = Array.Empty<DisposableWrapper>();
+        public DisposableArraySegment[] DataForDuplicates { get; set; } = Array.Empty<DisposableArraySegment>();
 
         /// <summary> Stream to write generated data </summary>
         public Stream WriteStream { get; }
@@ -267,7 +225,7 @@ internal class TestFileGenerator
         public void IncrementDuplicateHit() => Interlocked.Increment(ref _duplicatesHit);
 
 
-        public DisposableWrapper RandomDuplicate()
+        public DisposableArraySegment RandomDuplicate()
         {
             return DataForDuplicates[Random.Next(0, DataForDuplicates.Length)];
         }
