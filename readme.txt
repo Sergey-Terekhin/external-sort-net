@@ -75,3 +75,16 @@
 [21:22:01 INF] Finished generation of test data file. Generated 2086021 records and 1073742026 bytes. Duplicates written: 20823
 
 Вывод - меньше длина строки, менее эффективная генерация
+
+
+
+|                               Method | StringLength | ArrayLength |      Mean |    Error |   StdDev |     Gen0 |     Gen1 | Allocated |
+|------------------------------------- |------------- |------------ |----------:|---------:|---------:|---------:|---------:|----------:|
+|    StringData_StringComparer_Ordinal |          100 |        1000 |  45.19 us | 0.728 us | 0.779 us |        - |        - |      64 B |
+|           ByteData_AsciiDataComparer |          100 |        1000 | 139.51 us | 1.095 us | 0.971 us |        - |        - |      88 B |
+| ByteData_ConvertToString_And_Compare |          100 |        1000 | 183.22 us | 1.879 us | 1.758 us |  36.8652 |  11.7188 |  232088 B |
+|    StringData_StringComparer_Ordinal |         1000 |        1000 |  46.31 us | 0.441 us | 0.391 us |        - |        - |      64 B |
+|           ByteData_AsciiDataComparer |         1000 |        1000 | 135.89 us | 1.456 us | 1.362 us |        - |        - |      88 B |
+| ByteData_ConvertToString_And_Compare |         1000 |        1000 | 539.15 us | 6.473 us | 5.738 us | 323.2422 | 141.6016 | 2032088 B |
+
+

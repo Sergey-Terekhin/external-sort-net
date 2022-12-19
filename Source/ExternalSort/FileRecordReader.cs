@@ -42,7 +42,7 @@ internal class FileRecordReader : IDisposable, IAsyncDisposable
                 break;
 
             var recordsBuffer = _buffer[..(readChunkCount + _remainingBytes)];
-            var records = ReadFrom(recordsBuffer, out var lastCompleteRecordByte, out var lastRecordCompleted);
+            using var records = ReadFrom(recordsBuffer, out var lastCompleteRecordByte, out var lastRecordCompleted);
 
             if (records.Value.Count > 0)
             {

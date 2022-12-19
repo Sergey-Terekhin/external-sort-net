@@ -3,4 +3,6 @@
 using BenchmarkDotNet.Running;
 using Benchmarks;
 
-BenchmarkRunner.Run<SortingAlgorithmBenchmarks>();
+//BenchmarkRunner.Run<SortingAlgorithmBenchmarks>();
+//BenchmarkRunner.Run<StringDataComparerBenchmarks>();
+BenchmarkRunner.Run<MinBenchmarks>();

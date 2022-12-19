@@ -4,7 +4,7 @@ namespace ExternalSort;
 
 internal class ExternalSortImpl
 {
-    internal const int ReadBufferSize = 1024 * 1024;
+    internal const int ReadBufferSize = 10 * 1024 * 1024;
     private const int StreamBufferSize = 4096;
     private const double MemoryLimitThreshold = 0.8;
     private const long FreeMemorySize = 4L * 1024L * 1024L * 1024L;
@@ -60,8 +60,6 @@ internal class ExternalSortImpl
     {
         var chunkBufferSize = (int)(_options.BlockSize / (_options.BlockCount + 1));
 
-        //todo here it is place to decide if recursive merge should be made based on bufferSize
-
         var comparer = new FileRecordComparer();
         var contexts = _options.BlockFiles.Select(it =>
         {
@@ -89,6 +87,7 @@ internal class ExternalSortImpl
                     Array.Clear(outputBuffer);
                     outputIdx = 0;
                 }
+
                 var minContext = FindMinContext(contexts, comparer);
                 if (minContext == null)
                 {
@@ -97,6 +96,7 @@ internal class ExternalSortImpl
                         await writer.WriteAsync(new ArraySegment<FileRecord>(outputBuffer, 0, outputIdx), token);
                     break;
                 }
+
                 outputBuffer[outputIdx++] = minContext.Current!;
                 await minContext.NextItem(token);
             }

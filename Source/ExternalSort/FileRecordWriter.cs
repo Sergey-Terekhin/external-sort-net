@@ -4,7 +4,7 @@ namespace ExternalSort;
 
 public class FileRecordWriter : IDisposable, IAsyncDisposable
 {
-    private const int FileBufferSize = 1024 * 1024;
+    private const int FileBufferSize = 10*1024 * 1024;
     private readonly Stream _writeStream;
     private readonly bool _disposeStream;
 
@@ -38,6 +38,8 @@ public class FileRecordWriter : IDisposable, IAsyncDisposable
 
                 await _writeStream.WriteAsync(resultBuffer.AsMemory(0, writtenLength), token);
             }
+
+            await _writeStream.FlushAsync(token);
         }
         finally
         {
