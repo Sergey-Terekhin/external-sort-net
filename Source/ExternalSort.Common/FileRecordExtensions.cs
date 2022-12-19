@@ -7,8 +7,10 @@ namespace ExternalSort;
 /// </summary>
 public static class FileRecordExtensions
 {
+    // public static int ByteLength(this FileRecord record) =>
+    //     record.Number.DigitsCount() + record.StringData.Count + Constants.SeparatorLength + Constants.SeparatorLength;
     public static int ByteLength(this FileRecord record) =>
-        record.Number.DigitsCount() + record.StringData.Count + Constants.SeparatorLength + Constants.SeparatorLength;
+        record.Number.DigitsCount() + record.StringData.Length + Constants.SeparatorLength + Constants.SeparatorLength;
 
     public static int WriteTo(this FileRecord record, Span<byte> buffer)
     {
@@ -21,8 +23,9 @@ public static class FileRecordExtensions
         writtenLength += Constants.SeparatorLength;
 
         var stringSpan = buffer[writtenLength..];
-        record.StringData.AsSpan().CopyTo(stringSpan);
-        writtenLength += record.StringData.Count;
+        writtenLength+=Encoding.ASCII.GetBytes(record.StringData.AsSpan(), stringSpan);
+        //record.StringData.AsSpan().CopyTo(stringSpan);
+       // writtenLength += record.StringData.Count;
 
         var eolSpan = buffer.Slice(writtenLength, Constants.EndOfLineLength);
         Constants.EndOfLine.CopyTo(eolSpan);

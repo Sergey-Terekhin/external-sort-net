@@ -4,7 +4,7 @@ using ExternalSort;
 using FluentValidation;
 using Serilog;
 
-var logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+var logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Debug().CreateLogger();
 var result = Parser.Default.ParseArguments<Options>(args);
 if (result is Parsed<Options>)
 {
@@ -18,6 +18,7 @@ if (result is Parsed<Options>)
         logger.Information(
             "Finished sorting of the file {InputFile}. Results are stored in {OutputFile}. Elapsed time: {Elapsed}",
             options.Input, options.Output, elapsed);
+
         return 0;
     }
     catch (Exception e)

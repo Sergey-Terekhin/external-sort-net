@@ -3,7 +3,7 @@ using ExternalSort;
 using FluentValidation;
 using Serilog;
 
-var logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+var logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Debug().CreateLogger();
 var result = Parser.Default.ParseArguments<Options>(args);
 if (result is Parsed<Options>)
 {

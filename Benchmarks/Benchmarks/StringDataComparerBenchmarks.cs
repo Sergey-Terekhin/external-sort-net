@@ -42,12 +42,6 @@ public class StringDataComparerBenchmarks
     }
 
     [Benchmark]
-    public void ByteData_AsciiDataComparer()
-    {
-        Array.Sort(_unsortedBytes, new AsciiDataComparer());
-    }
-
-    [Benchmark]
     public void ByteData_ConvertToString_And_Compare()
     {
         var unsorted = new string[_unsortedBytes.Length];

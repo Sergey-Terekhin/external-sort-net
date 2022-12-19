@@ -1,8 +1,8 @@
 ﻿using System.Buffers;
 using System.Threading.Tasks.Dataflow;
 using Serilog.Core;
-
 using DisposableArraySegment = ExternalSort.DisposableArraySegment<byte>;
+
 // ReSharper disable ForCanBeConvertedToForeach
 // ReSharper disable ArrangeObjectCreationWhenTypeNotEvident
 
@@ -10,8 +10,7 @@ namespace ExternalSort;
 
 internal class TestFileGenerator
 {
-
-    private const int FileBufferSize = 8*1024*1024;
+    private const int FileBufferSize = 8 * 1024 * 1024;
     private static readonly int MaxAdditionalLength = Constants.MaxLongDigits + Constants.SeparatorLength + Constants.EndOfLineLength;
 
     private readonly Options _options;
@@ -70,7 +69,7 @@ internal class TestFileGenerator
     private static BufferContext CombineBuffers(RecordContext[] buffers)
     {
         var resultBuffer = ArrayPool<byte>.Shared.Rent(FileBufferSize);
-       
+
         var writtenLength = 0;
         for (var i = 0; i < buffers.Length; i++)
         {
@@ -98,8 +97,9 @@ internal class TestFileGenerator
     private static RecordContext GenerateLineData(GenerationContext ctx)
     {
         var num = ctx.RandomNumber();
-        DisposableArraySegment data;
-        
+        //DisposableArraySegment data;
+        string data;
+
         var takeDuplicate = ctx.Random.NextDouble() <= ctx.DuplicatesRatio;
         if (takeDuplicate && ctx.DataForDuplicates.Length > 0)
         {
@@ -108,12 +108,11 @@ internal class TestFileGenerator
         }
         else
         {
-            var chars = ArrayPool<byte>.Shared.Rent(ctx.MaximalDataLength);
+            var chars = ArrayPool<char>.Shared.Rent(ctx.MaximalDataLength);
             var dataLength = ctx.Random.Next(ctx.MinimalDataLength, ctx.MaximalDataLength);
             FillRandomArray(chars, 0, dataLength, ctx.Random);
-            data = new DisposableArraySegment(
-                new ArraySegment<byte>(chars, 0, dataLength),
-                arr => ArrayPool<byte>.Shared.Return(arr));
+            data = new string(chars, 0, dataLength);
+            ArrayPool<char>.Shared.Return(chars);
         }
 
         var record = new FileRecord(num, data);
@@ -121,20 +120,21 @@ internal class TestFileGenerator
         ctx.IncrementGeneratedRecords();
         return new(ctx, record);
     }
-
-    private static DisposableArraySegment[] GenerateRandomStringsData(GenerationContext ctx)
+    private static string[] GenerateRandomStringsData(GenerationContext ctx)
     {
         if (ctx.PreGeneratedDatasetSize == 0)
-            return Array.Empty<DisposableArraySegment>();
+            return Array.Empty<string>();
 
-        var result = new DisposableArraySegment[ctx.PreGeneratedDatasetSize];
+        var result = new string[ctx.PreGeneratedDatasetSize];
+        var temp = ArrayPool<char>.Shared.Rent(ctx.MaximalDataLength);
         for (var i = 0; i < result.Length; i++)
         {
             var length = ctx.Random.Next(ctx.MinimalDataLength, ctx.MaximalDataLength);
-            var array = new byte[length];
-            FillRandomArray(array, 0, length, ctx.Random);
-            result[i] = new DisposableArraySegment(array);
+            FillRandomArray(temp, 0, length, ctx.Random);
+            result[i] = new string(temp, 0, length);
         }
+
+        ArrayPool<char>.Shared.Return(temp);
 
         return result;
     }
@@ -149,7 +149,18 @@ internal class TestFileGenerator
             array[i + start] = (byte)Constants.AllowedChars[random.Next(0, Constants.AllowedChars.Length)];
     }
 
+    private static void FillRandomArray(char[] array, int start, int length, Random random)
+    {
+        array[start] = Constants.AllowedFirstChars[random.Next(0, Constants.AllowedFirstChars.Length)];
+        if (length == 1)
+            return;
+
+        for (var i = 1; i < length; i++)
+            array[i + start] = Constants.AllowedChars[random.Next(0, Constants.AllowedChars.Length)];
+    }
+
     private record RecordContext(GenerationContext GlobalContext, FileRecord Data);
+
     private record BufferContext(GenerationContext GlobalContext, DisposableArraySegment<byte> Data);
 
 
@@ -208,7 +219,8 @@ internal class TestFileGenerator
         /// <summary> Maximal data length </summary>
         public int MaximalDataLength { get; }
 
-        public DisposableArraySegment[] DataForDuplicates { get; set; } = Array.Empty<DisposableArraySegment>();
+        // public DisposableArraySegment[] DataForDuplicates { get; set; } = Array.Empty<DisposableArraySegment>();
+        public string[] DataForDuplicates { get; set; } = Array.Empty<string>();
 
         /// <summary> Stream to write generated data </summary>
         public Stream WriteStream { get; }
@@ -225,7 +237,11 @@ internal class TestFileGenerator
         public void IncrementDuplicateHit() => Interlocked.Increment(ref _duplicatesHit);
 
 
-        public DisposableArraySegment RandomDuplicate()
+        // public DisposableArraySegment RandomDuplicate()
+        // {
+        //     return DataForDuplicates[Random.Next(0, DataForDuplicates.Length)];
+        // }
+        public string RandomDuplicate()
         {
             return DataForDuplicates[Random.Next(0, DataForDuplicates.Length)];
         }

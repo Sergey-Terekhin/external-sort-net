@@ -11,7 +11,6 @@ public readonly struct DisposableArraySegment<T> : IDisposable
     }
 
     public ArraySegment<T> Value { get; }
-    public int Count => Value.Count;
 
     public void Dispose()
     {

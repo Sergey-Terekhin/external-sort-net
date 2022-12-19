@@ -121,7 +121,7 @@ internal class FileRecordReader : IDisposable, IAsyncDisposable
 
         var stringData = line[(separatorIndex + Constants.SeparatorLength)..];
 
-        return new FileRecord(currentNumber, new DisposableArraySegment<byte>(stringData.ToArray()));
+        return new FileRecord(currentNumber, Encoding.ASCII.GetString(stringData));
     }
 
 

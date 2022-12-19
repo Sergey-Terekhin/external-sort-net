@@ -5,7 +5,7 @@ namespace ExternalSort;
 internal class ExternalSortImpl
 {
     internal const int ReadBufferSize = 10 * 1024 * 1024;
-    private const int StreamBufferSize = 4096;
+    private const int StreamBufferSize = 4 * 1024 * 1024;
     private const double MemoryLimitThreshold = 0.8;
     private const long FreeMemorySize = 4L * 1024L * 1024L * 1024L;
     private readonly Options _options;
@@ -47,8 +47,8 @@ internal class ExternalSortImpl
             await Merge(token);
         }
 
-        // if (Directory.Exists(_options.Temp))
-        //     Directory.Delete(_options.Temp, true);
+        if (Directory.Exists(_options.Temp))
+            Directory.Delete(_options.Temp, true);
     }
 
     private void SetBlockCount(FileInfo inputFileInfo)
@@ -68,7 +68,7 @@ internal class ExternalSortImpl
             return new MergeContext(reader, chunkBufferSize);
         }).ToArray();
 
-        var outputBuffer = new FileRecord[chunkBufferSize];
+        var outputBuffer = new FileRecord[chunkBufferSize / Constants.MaxStringLength];
         await using var writeStream = CreateWriteStream(_options.Output);
         await using var writer = new FileRecordWriter(writeStream);
         var outputIdx = 0;
@@ -125,6 +125,7 @@ internal class ExternalSortImpl
         await using var reader = new FileRecordReader(stream, bufferSize);
         if (_options.BlockCount == 1)
         {
+            _logger.Debug("File can be sorted in memory. Merge stage will be omitted");
             //just read and sort file
             var records = await reader.ReadAsync(_options.BlockSize, token);
             records.Sort(FileRecordComparer.Default);
@@ -145,6 +146,7 @@ internal class ExternalSortImpl
         _options.BlockFiles = new List<string>();
         do
         {
+            _logger.Debug("Started sorting of part of input file. Size: {BlockSize} bytes", _options.BlockSize);
             var records = await reader.ReadAsync(_options.BlockSize, token);
             if (records.Count == 0)
                 break;
@@ -158,6 +160,9 @@ internal class ExternalSortImpl
             await using var writer = new FileRecordWriter(outputStream);
             await writer.WriteAsync(records, token);
             index++;
+
+            _logger.Debug("Finished sorting of part of input file. Size: {BlockSize} bytes. Part results were written to {TempPath}",
+                _options.BlockSize, tempFile);
         } while (true);
 
         return true;

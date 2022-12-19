@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using ExternalSort;
 using FluentAssertions;
-using FluentAssertions.Equivalency;
 using NUnit.Framework;
 
 namespace ExternalSortTests;
@@ -29,7 +28,7 @@ public class Tests
             .Select(s =>
             {
                 var parts = s.Split(". ", StringSplitOptions.RemoveEmptyEntries);
-                return new FileRecord(long.Parse(parts[0]), new(Encoding.ASCII.GetBytes(parts[1])));
+                return new FileRecord(long.Parse(parts[0]),parts[1]);
             }).ToArray();
         using var reader = new FileRecordReader(Stream.Null, ExternalSortImpl.ReadBufferSize);
         var bytes = Encoding.ASCII.GetBytes(data);
@@ -50,7 +49,7 @@ public class Tests
             .Select(s =>
             {
                 var parts = s.Split(". ", StringSplitOptions.RemoveEmptyEntries);
-                return new FileRecord(long.Parse(parts[0]), new(Encoding.ASCII.GetBytes(parts[1])));
+                return new FileRecord(long.Parse(parts[0]), parts[1]);
             }).ToArray();
         using var reader = new FileRecordReader(Stream.Null, ExternalSortImpl.ReadBufferSize);
         var bytes = Encoding.ASCII.GetBytes(data);
@@ -69,7 +68,7 @@ public class Tests
             .Select(s =>
             {
                 var parts = s.Split(". ", StringSplitOptions.RemoveEmptyEntries);
-                return new FileRecord(long.Parse(parts[0]), new(Encoding.ASCII.GetBytes(parts[1])));
+                return new FileRecord(long.Parse(parts[0]), parts[1]);
             }).ToArray();
         var stream = new MemoryStream(Encoding.ASCII.GetBytes(data));
         await using var reader = new FileRecordReader(stream, blockSize);

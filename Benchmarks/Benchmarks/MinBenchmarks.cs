@@ -19,14 +19,14 @@ public class MinBenchmarks
         _unsorted = new FileRecord[ArrayLength];
         for (var i = 0; i < _unsorted.Length; i++)
         {
-            _unsorted[i] = new FileRecord(_random.NextInt64(), new DisposableArraySegment<byte>(GenerateRandomString()));
+            _unsorted[i] = new FileRecord(_random.NextInt64(), GenerateRandomString());
         }
         
     }
-    private byte[] GenerateRandomString()
+    private string GenerateRandomString()
     {
-        var chars = Enumerable.Range(0, StringLength).Select(_ => (byte)AllowedChars[_random.Next(0, AllowedChars.Length)]).ToArray();
-        return chars;
+        var chars = Enumerable.Range(0, StringLength).Select(_ => AllowedChars[_random.Next(0, AllowedChars.Length)]).ToArray();
+        return new string(chars);
     }
     
     [Params(1000)] public int StringLength { get; set; } = 1024;
